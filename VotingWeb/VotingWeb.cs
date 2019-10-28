@@ -15,6 +15,9 @@ namespace VotingWeb
     using Microsoft.ServiceFabric.Services.Communication.AspNetCore;
     using Microsoft.ServiceFabric.Services.Communication.Runtime;
     using Microsoft.ServiceFabric.Services.Runtime;
+    using System.Net;
+    using Microsoft.Extensions.Configuration;
+    using System.Security.Cryptography.X509Certificates;
 
     /// <summary>
     /// The FabricRuntime creates an instance of this class for each service type instance. 
@@ -34,17 +37,54 @@ namespace VotingWeb
         {
             return new ServiceInstanceListener[]
             {
+                //new ServiceInstanceListener(
+                //    serviceContext =>
+                //        new KestrelCommunicationListener(
+                //            serviceContext,
+                //            "ServiceEndpoint",
+                //            (url, listener) =>
+                //            {
+                //                ServiceEventSource.Current.ServiceMessage(serviceContext, $"Starting Kestrel on {url}");
+
+                //                return new WebHostBuilder()
+                //                    .UseKestrel()
+                //                    .ConfigureServices(
+                //                        services => services
+                //                            .AddSingleton<HttpClient>(new HttpClient())
+                //                            .AddSingleton<FabricClient>(new FabricClient())
+                //                            .AddSingleton<StatelessServiceContext>(serviceContext))
+                //                    .UseContentRoot(Directory.GetCurrentDirectory())
+                //                    .UseStartup<Startup>()
+                //                    .UseApplicationInsights()
+                //                    .UseServiceFabricIntegration(listener, ServiceFabricIntegrationOptions.None)
+                //                    .UseUrls(url)
+                //                    .Build();
+                //            }))
+
                 new ServiceInstanceListener(
                     serviceContext =>
                         new KestrelCommunicationListener(
                             serviceContext,
-                            "ServiceEndpoint",
+                            "EndpointHttps",
                             (url, listener) =>
                             {
                                 ServiceEventSource.Current.ServiceMessage(serviceContext, $"Starting Kestrel on {url}");
 
                                 return new WebHostBuilder()
-                                    .UseKestrel()
+                                    .UseKestrel(opt =>
+                                    {
+                                        int port = serviceContext.CodePackageActivationContext.GetEndpoint("EndpointHttps").Port;
+                                        opt.Listen(IPAddress.IPv6Any, port, listenOptions =>
+                                        {
+                                            listenOptions.UseHttps(GetHttpsCertificateFromStore());
+                                            listenOptions.NoDelay = true;
+                                        });
+                                    })
+                                    .ConfigureAppConfiguration((builderContext, config) =>
+                                    {
+                                        config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                                    })
+
                                     .ConfigureServices(
                                         services => services
                                             .AddSingleton<HttpClient>(new HttpClient())
@@ -52,12 +92,28 @@ namespace VotingWeb
                                             .AddSingleton<StatelessServiceContext>(serviceContext))
                                     .UseContentRoot(Directory.GetCurrentDirectory())
                                     .UseStartup<Startup>()
-                                    .UseApplicationInsights()
                                     .UseServiceFabricIntegration(listener, ServiceFabricIntegrationOptions.None)
                                     .UseUrls(url)
                                     .Build();
                             }))
             };
+        }
+
+        private X509Certificate2 GetHttpsCertificateFromStore()
+        {
+            using (var store = new X509Store(StoreName.My, StoreLocation.LocalMachine))
+            {
+                store.Open(OpenFlags.ReadOnly);
+                var certCollection = store.Certificates;
+                var currentCerts = certCollection.Find(X509FindType.FindBySubjectDistinguishedName, "CN=chinanorth2.cloudapp.chinacloudapi.cn", false);
+
+                if (currentCerts.Count == 0)
+                {
+                    throw new Exception("chinanorth2.cloudapp.chinacloudapi.cn,Https certificate is not found.");
+                }
+
+                return currentCerts[0];
+            }
         }
 
         /// <summary>
