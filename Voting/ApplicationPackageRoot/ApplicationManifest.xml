@@ -7,11 +7,11 @@
     <Parameter Name="VotingWeb_InstanceCount" DefaultValue="-1" />
   </Parameters>
   <ServiceManifestImport>
-    <ServiceManifestRef ServiceManifestName="VotingDataPkg" ServiceManifestVersion="3.0.0" />
+    <ServiceManifestRef ServiceManifestName="VotingDataPkg" ServiceManifestVersion="1.0.0" />
     <ConfigOverrides />
   </ServiceManifestImport>
   <ServiceManifestImport>
-    <ServiceManifestRef ServiceManifestName="VotingWebPkg" ServiceManifestVersion="3.0.0" />
+    <ServiceManifestRef ServiceManifestName="VotingWebPkg" ServiceManifestVersion="1.0.0" />
     <ConfigOverrides />
     <Policies>
       <RunAsPolicy CodePackageRef="Code" UserRef="nd960516" EntryPointType="Setup" />
